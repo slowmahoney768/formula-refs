@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "formularefs"
+version = "0.1.0"
+description = "List the cell and range references a spreadsheet formula depends on"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "slowmahoney768" }]
+
+[project.scripts]
+formularefs = "formularefs.cli:main"
+
+[tool.setuptools]
+packages = ["formularefs"]
