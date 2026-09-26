@@ -38,6 +38,19 @@ Or piped in, one formula per line:
 $ cat formulas.txt | formularefs
 ```
 
+Pass `--expand-ranges` to also list every individual cell a range covers,
+useful when you need the flat set of cells a restructuring would touch:
+
+```
+$ formularefs --expand-ranges "=SUM(A1:B2)"
+=SUM(A1:B2)
+  A1:B2 [range]
+    A1
+    B1
+    A2
+    B2
+```
+
 Pass `--json` for machine-readable output, e.g. to feed into another script
 that builds a dependency graph across a workbook:
 
@@ -73,6 +86,9 @@ $ formularefs --json "=A1+\$B\$2"
   }
 ]
 ```
+
+Combine `--json` with `--expand-ranges` to get a `"cells"` array on each
+range reference alongside the existing fields.
 
 ## Installing
 

@@ -14,13 +14,16 @@ def _read_formulas(args: argparse.Namespace) -> List[str]:
     return [line.strip() for line in sys.stdin if line.strip()]
 
 
-def _render_human(formula: str, references) -> str:
+def _render_human(formula: str, references, expand_ranges: bool) -> str:
     if not references:
         return f"{formula}\n  (no references found)"
     lines = [formula]
     for ref in references:
         kind = "range" if ref.is_range else "cell"
         lines.append(f"  {ref.text} [{kind}]")
+        if expand_ranges and ref.is_range:
+            for cell in ref.expand_cells():
+                lines.append(f"    {cell}")
     return "\n".join(lines)
 
 
@@ -40,6 +43,11 @@ def main(argv=None) -> int:
         action="store_true",
         help="emit machine-readable JSON instead of the human-readable listing",
     )
+    parser.add_argument(
+        "--expand-ranges",
+        action="store_true",
+        help="also list every individual cell covered by each range reference",
+    )
     args = parser.parse_args(argv)
 
     formulas = _read_formulas(args)
@@ -49,13 +57,23 @@ def main(argv=None) -> int:
     parsed = [(formula, extract_references(formula)) for formula in formulas]
 
     if args.json:
-        results = [
-            {"formula": formula, "references": [r.to_dict() for r in references]}
-            for formula, references in parsed
-        ]
+        results = []
+        for formula, references in parsed:
+            ref_dicts = []
+            for ref in references:
+                ref_dict = ref.to_dict()
+                if args.expand_ranges and ref.is_range:
+                    ref_dict["cells"] = ref.expand_cells()
+                ref_dicts.append(ref_dict)
+            results.append({"formula": formula, "references": ref_dicts})
         print(json.dumps(results, indent=2))
     else:
-        print("\n\n".join(_render_human(formula, references) for formula, references in parsed))
+        print(
+            "\n\n".join(
+                _render_human(formula, references, args.expand_ranges)
+                for formula, references in parsed
+            )
+        )
 
     return 0
 

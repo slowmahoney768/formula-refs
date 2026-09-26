@@ -61,14 +61,74 @@ class Reference:
             result["absolute"]["end_row"] = end_row_abs
         return result
 
+    def expand_cells(self) -> List[str]:
+        """Return every individual cell covered by this reference.
+
+        For a single-cell reference this is just that cell. For a range,
+        it walks the rectangle from top-left to bottom-right regardless of
+        which corner the formula listed first (e.g. "B2:A1" still expands
+        starting at A1).
+        """
+        prefix = _format_sheet_prefix(self.sheet)
+        if not self.is_range:
+            start_match = _CELL_PARTS_RE.match(self.start)
+            col, row = start_match.group(1), start_match.group(2)
+            return [f"{prefix}{col.upper()}{row}"]
+
+        start_match = _CELL_PARTS_RE.match(self.start)
+        end_match = _CELL_PARTS_RE.match(self.end)
+        start_col = _col_to_num(start_match.group(1))
+        start_row = int(start_match.group(2))
+        end_col = _col_to_num(end_match.group(1))
+        end_row = int(end_match.group(2))
+
+        lo_col, hi_col = sorted((start_col, end_col))
+        lo_row, hi_row = sorted((start_row, end_row))
+
+        cells = []
+        for row in range(lo_row, hi_row + 1):
+            for col_num in range(lo_col, hi_col + 1):
+                cells.append(f"{prefix}{_num_to_col(col_num)}{row}")
+        return cells
+
 
 def _strip_sheet_quotes(sheet: Optional[str]) -> Optional[str]:
     if sheet is None:
         return None
     name = sheet[:-1]  # drop trailing '!'
     if name.startswith("'") and name.endswith("'"):
-        name = name[1:-1]
+        name = name[1:-1].replace("''", "'")
     return name
+
+
+_BARE_SHEET_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+
+# Splits a single cell token into its column letters and row number,
+# ignoring any '$' absolute markers.
+_CELL_PARTS_RE = re.compile(r"^\$?([A-Za-z]{1,3})\$?([0-9]+)$")
+
+
+def _format_sheet_prefix(sheet: Optional[str]) -> str:
+    if sheet is None:
+        return ""
+    if _BARE_SHEET_NAME_RE.match(sheet):
+        return f"{sheet}!"
+    return f"'{sheet.replace(chr(39), chr(39) * 2)}'!"
+
+
+def _col_to_num(col: str) -> int:
+    num = 0
+    for ch in col.upper():
+        num = num * 26 + (ord(ch) - ord("A") + 1)
+    return num
+
+
+def _num_to_col(num: int) -> str:
+    letters = ""
+    while num > 0:
+        num, rem = divmod(num - 1, 26)
+        letters = chr(rem + ord("A")) + letters
+    return letters
 
 
 def extract_references(formula: str) -> List[Reference]:
